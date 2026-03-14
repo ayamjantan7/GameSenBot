@@ -101,10 +101,31 @@ async function logCoinflip(hostId, opponentId, bet, hostChoice, oppChoice, coinR
     channel.send({ embeds: [embed] });
 }
 
+async function logReme(hostId, opponentId, bet, spinHost, spinOpp, winnerId, fee, hadiah, hostKuat, oppKuat) {
+    const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+        .setColor(0x9B59B6)
+        .setTitle('🎯 Reme Log')
+        .setDescription(`
+**Host :** <@${hostId}> (🎲 ${spinHost}) ${hostKuat ? '🔷 KUAT' : ''}
+**Lawan :** <@${opponentId}> (🎲 ${spinOpp}) ${oppKuat ? '🔷 KUAT' : ''}
+**Taruhan :** ${bet.toLocaleString('id-ID')} Coin
+**Pemenang :** <@${winnerId}>
+**Hadiah :** ${hadiah.toLocaleString('id-ID')} Coin
+**Fee (5%) :** ${fee.toLocaleString('id-ID')} Coin
+**Waktu :** ${new Date().toLocaleTimeString('id-ID')}
+        `)
+        .setTimestamp();
+    channel.send({ embeds: [embed] });
+}
+
 module.exports = { 
     logTransfer, 
     logAdminAdd, 
     logAdminDel, 
     logDuel,
-    logCoinflip
+    logCoinflip,
+    logReme
 };
