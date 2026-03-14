@@ -38,66 +38,63 @@ module.exports = {
 
         await message.reply(`🎲 Kamu mendapatkan angka **${spin}**!`);
 
-        // Cek apakah kedua sudah spin
         if (duel.hostSpin !== null && duel.opponentSpin !== null) {
             const hostSpin = duel.hostSpin;
             const oppSpin = duel.opponentSpin;
 
             if (hostSpin === oppSpin) {
-    // Seri: reset spin, minta spin lagi
-    
-    // Batalkan timeout lama
-    if (duel.spinTimeoutId) {
-        clearTimeout(duel.spinTimeoutId);
-    }
-    
-    // Reset spin
-    duel.hostSpin = null;
-    duel.opponentSpin = null;
-    
-    // Pasang timeout baru (salin dari join.js)
-    const newSpinTimeoutId = setTimeout(async () => {
-        const currentDuel = global.duels.get(message.channel.id);
-        if (currentDuel && currentDuel.status === 'spinning' && 
-            (currentDuel.hostSpin === null || currentDuel.opponentSpin === null)) {
-            
-            const hostUser = await getUser(currentDuel.hostId, '');
-            const oppUser = await getUser(currentDuel.opponentId, '');
-            hostUser.saldo += currentDuel.bet;
-            oppUser.saldo += currentDuel.bet;
-            await hostUser.save();
-            await oppUser.save();
+                if (duel.spinTimeoutId) {
+                    clearTimeout(duel.spinTimeoutId);
+                }
+                
+                duel.hostSpin = null;
+                duel.opponentSpin = null;
+                
+                const channel = message.channel;
+                const host = await channel.client.users.fetch(duel.hostId);
+                const opponent = await channel.client.users.fetch(duel.opponentId);
+                
+                const newSpinTimeoutId = setTimeout(async () => {
+                    const currentDuel = global.duels.get(channel.id);
+                    if (currentDuel && currentDuel.status === 'spinning' && 
+                        (currentDuel.hostSpin === null || currentDuel.opponentSpin === null)) {
+                        
+                        const hostUser = await getUser(currentDuel.hostId, '');
+                        const oppUser = await getUser(currentDuel.opponentId, '');
+                        hostUser.saldo += currentDuel.bet;
+                        oppUser.saldo += currentDuel.bet;
+                        await hostUser.save();
+                        await oppUser.save();
 
-            global.duels.delete(message.channel.id);
+                        global.duels.delete(channel.id);
 
-            const cancelEmbed = new EmbedBuilder()
-                .setColor(0xFF0000)
-                .setTitle('❌ Duel Dibatalkan')
-                .setDescription(`Salah satu pemain tidak melakukan spin dalam 3 menit. Coin dikembalikan.`)
-                .setTimestamp();
-            message.channel.send({ embeds: [cancelEmbed] });
-        }
-    }, 3 * 60 * 1000);
-    
-    duel.spinTimeoutId = newSpinTimeoutId;
-    global.duels.set(message.channel.id, duel);
+                        const cancelEmbed = new EmbedBuilder()
+                            .setColor(0xFF0000)
+                            .setTitle('❌ Duel Dibatalkan')
+                            .setDescription(`Salah satu pemain tidak melakukan spin dalam 3 menit. Coin dikembalikan.`)
+                            .setTimestamp();
+                        channel.send({ embeds: [cancelEmbed] });
+                    }
+                }, 3 * 60 * 1000);
+                
+                duel.spinTimeoutId = newSpinTimeoutId;
+                global.duels.set(message.channel.id, duel);
 
-    const seriEmbed = new EmbedBuilder()
-        .setColor(0xFFFF00)
-        .setTitle('🎰 ━━━━━ GameSen Spin ━━━━━ 🎰')
-        .setDescription(`
+                const seriEmbed = new EmbedBuilder()
+                    .setColor(0xFFFF00)
+                    .setTitle('🎰 ━━━━━ GameSen Spin ━━━━━ 🎰')
+                    .setDescription(`
 👤 **Host :** <@${duel.hostId}> — 🎲 **${hostSpin}**
 👤 **Lawan :** <@${duel.opponentId}> — 🎲 **${oppSpin}**
 
 ⚖️ **Hasil SERI!**
 Silakan ketik \`!spin\` lagi untuk menentukan pemenang.
-        `)
-        .setFooter({ text: 'Gunakan coin dengan bijak 👑' })
-        .setTimestamp();
-    return message.channel.send({ embeds: [seriEmbed] });
-}
+                    `)
+                    .setFooter({ text: 'Gunakan coin dengan bijak 👑' })
+                    .setTimestamp();
+                return message.channel.send({ embeds: [seriEmbed] });
+            }
 
-            // Tentukan pemenang
             let pemenang, kalah;
             if (hostSpin > oppSpin) {
                 pemenang = duel.hostId;
@@ -111,26 +108,28 @@ Silakan ketik \`!spin\` lagi untuk menentukan pemenang.
             const fee = Math.floor(totalPot * 0.05);
             const hadiah = totalPot - fee;
 
-            // Update saldo dan statistik
             const pemenangUser = await getUser(pemenang, '');
             const kalahUser = await getUser(kalah, '');
 
             pemenangUser.saldo += hadiah;
-            // ... statistik lainnya
+            pemenangUser.totalMenang += 1;
+            kalahUser.totalKalah += 1;
+            pemenangUser.winstreak += 1;
+            kalahUser.winstreak = 0;
+            if (pemenangUser.winstreak > pemenangUser.bestWinstreak) {
+                pemenangUser.bestWinstreak = pemenangUser.winstreak;
+            }
 
             await pemenangUser.save();
             await kalahUser.save();
 
-            // Batalkan timeout spin jika ada
             if (duel.spinTimeoutId) {
-            clearTimeout(duel.spinTimeoutId);
+                clearTimeout(duel.spinTimeoutId);
             }
 
-            // Hapus duel
             global.duels.delete(message.channel.id);
 
-            const hasilEmbed = new EmbedBuilder()...
-            await message.channel.send({ embeds: [hasilEmbed] });
+            const hasilEmbed = new EmbedBuilder()
                 .setColor(0x00FF00)
                 .setTitle('🎰 ━━━━━ GameSen Spin ━━━━━ 🎰')
                 .setDescription(`
@@ -149,7 +148,6 @@ Gunakan coin dengan bijak 👑
 
             await logger.logDuel(duel.hostId, duel.opponentId, duel.bet, hostSpin, oppSpin, pemenang, fee, hadiah);
         } else {
-            // Update embed room untuk menunjukkan siapa yang sudah spin
             const channel = message.channel;
             const host = await channel.client.users.fetch(duel.hostId);
             const opponent = await channel.client.users.fetch(duel.opponentId);
