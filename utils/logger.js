@@ -59,5 +59,23 @@ async function logDuel(hostId, opponentId, bet, spinHost, spinOpp, winnerId, fee
         .setTimestamp();
     channel.send({ embeds: [embed] });
 }
+async function logAdminDel(admin, target, jumlah, sisaSaldo) {
+    const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
+    if (!channel) return;
 
-module.exports = { logTransfer, logAdminAdd, logDuel };
+    const embed = new EmbedBuilder()
+        .setColor(0xFF5733)
+        .setTitle('📑 GameSen Admin Log (Delete Coin)')
+        .setDescription(`
+**Admin menghapus coin**
+
+**Admin :** ${admin}
+**Target :** ${target}
+**Jumlah Dihapus :** ${jumlah.toLocaleString('id-ID')} Coin
+**Sisa Saldo :** ${sisaSaldo.toLocaleString('id-ID')} Coin
+**Waktu :** ${new Date().toLocaleTimeString('id-ID')}
+        `)
+        .setTimestamp();
+    channel.send({ embeds: [embed] });
+}
+module.exports = { logTransfer, logAdminAdd, logDuel, logAdminDel };
