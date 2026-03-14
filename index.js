@@ -13,8 +13,8 @@ const client = new Client({
     ]
 });
 
-global.client = client; // untuk logger
-global.duels = new Map(); // menyimpan state duel per channel
+global.client = client;
+global.duels = new Map();
 
 client.commands = new Collection();
 
@@ -29,9 +29,14 @@ for (const file of commandFiles) {
 }
 
 // Koneksi MongoDB
-mongoose.connect(process.env.MONGODB_URI)
-    .then(() => console.log('✅ Terhubung ke MongoDB'))
-    .catch(err => console.error('❌ Gagal koneksi MongoDB:', err));
+mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 5000
+})
+.then(() => console.log('✅ Terhubung ke MongoDB'))
+.catch(err => {
+    console.error('❌ Gagal koneksi MongoDB:');
+    console.error(err);
+});
 
 client.once('ready', () => {
     console.log(`✅ Bot ${client.user.tag} sudah online!`);
@@ -51,14 +56,25 @@ client.on('messageCreate', async message => {
     const playChannelId = process.env.PLAY_CHANNEL_ID;
     const tutorialChannelId = process.env.TUTORIAL_CHANNEL_ID;
     const peraturanChannelId = process.env.PERATURAN_CHANNEL_ID;
+    const paymentChannelId = process.env.PAYMENT_CHANNEL_ID;
 
-    if (commandName === 'tutorial') {
+    // Command yang bisa dijalankan di SEMUA channel (khusus admin)
+    const globalCommands = ['deletechat', 'addcoin', 'delcoin'];
+
+    if (globalCommands.includes(commandName)) {
+        // Command admin bisa dijalankan di channel mana saja
+        console.log(`Command admin ${commandName} dijalankan di channel ${message.channel.name}`);
+    } else if (commandName === 'tutorial') {
         if (![tutorialChannelId, playChannelId].includes(message.channel.id)) {
             return message.reply(`❌ Command !tutorial hanya bisa digunakan di <#${tutorialChannelId}> atau <#${playChannelId}>.`);
         }
     } else if (commandName === 'peraturan') {
         if (![peraturanChannelId, playChannelId].includes(message.channel.id)) {
             return message.reply(`❌ Command !peraturan hanya bisa digunakan di <#${peraturanChannelId}> atau <#${playChannelId}>.`);
+        }
+    } else if (commandName === 'payment') {
+        if (![paymentChannelId, playChannelId].includes(message.channel.id)) {
+            return message.reply(`❌ Command !payment hanya bisa digunakan di <#${paymentChannelId}> atau <#${playChannelId}>.`);
         }
     } else {
         if (message.channel.id !== playChannelId) {
@@ -69,7 +85,7 @@ client.on('messageCreate', async message => {
     try {
         await command.execute(message, args);
     } catch (error) {
-        console.error(error);
+        console.error(`[ERROR] Command ${commandName} oleh ${message.author.tag}:`, error);
         message.reply('❌ Terjadi kesalahan saat menjalankan command.');
     }
 });
