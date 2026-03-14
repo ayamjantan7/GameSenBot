@@ -5,6 +5,7 @@ const logger = require('./logger');
 
 async function handleCoinChoice(message, choice) {
     try {
+        // Inisialisasi Map untuk coinflip jika belum ada
         if (!global.coinflips) {
             global.coinflips = new Map();
         }
@@ -17,12 +18,14 @@ async function handleCoinChoice(message, choice) {
             return message.reply('❌ Permainan tidak dalam tahap memilih.');
         }
 
+        // Tentukan siapa user
         let isHost = (message.author.id === game.hostId);
         let isOpponent = (message.author.id === game.opponentId);
         if (!isHost && !isOpponent) {
             return message.reply('❌ Kamu tidak terlibat dalam permainan ini.');
         }
 
+        // Cek apakah sudah memilih
         if (isHost && game.hostChoice !== null) {
             return message.reply('❌ Kamu sudah memilih.');
         }
@@ -30,6 +33,7 @@ async function handleCoinChoice(message, choice) {
             return message.reply('❌ Kamu sudah memilih.');
         }
 
+        // Simpan pilihan
         if (isHost) {
             game.hostChoice = choice;
         } else {
@@ -38,6 +42,7 @@ async function handleCoinChoice(message, choice) {
 
         await message.reply(`✅ Kamu memilih **${choice === 'head' ? '🔴 Head' : '🔵 Tails'}**!`);
 
+        // Update embed status
         const channel = message.channel;
         const host = await channel.client.users.fetch(game.hostId);
         const opponent = await channel.client.users.fetch(game.opponentId);
@@ -66,10 +71,13 @@ Pilih sisi koin dengan \`!head\` atau \`!tails\`
             const hostChoice = game.hostChoice;
             const oppChoice = game.opponentChoice;
 
+            // Jika pilihan sama
             if (hostChoice === oppChoice) {
+                // Reset pilihan
                 game.hostChoice = null;
                 game.opponentChoice = null;
                 
+                // Kirim pesan suruh pilih ulang
                 const ulangEmbed = new EmbedBuilder()
                     .setColor(0xFFFF00)
                     .setTitle('🪙 ━━━━━ GameSen Coinflip ━━━━━ 🪙')
@@ -84,8 +92,10 @@ Silakan pilih ulang dengan \`!head\` atau \`!tails\`
                 return message.channel.send({ embeds: [ulangEmbed] });
             }
 
+            // Tentukan hasil koin (random)
             const coinResult = Math.random() < 0.5 ? 'head' : 'tails';
             
+            // Tentukan pemenang
             let pemenangId, kalahId;
             if (hostChoice === coinResult) {
                 pemenangId = game.hostId;
@@ -99,6 +109,7 @@ Silakan pilih ulang dengan \`!head\` atau \`!tails\`
             const fee = Math.floor(totalPot * 0.05);
             const hadiah = totalPot - fee;
 
+            // Update saldo dan statistik
             const pemenangUser = await getUser(pemenangId, pemenangId === game.hostId ? host.username : opponent.username);
             const kalahUser = await getUser(kalahId, kalahId === game.hostId ? host.username : opponent.username);
 
@@ -115,12 +126,15 @@ Silakan pilih ulang dengan \`!head\` atau \`!tails\`
             await pemenangUser.save();
             await kalahUser.save();
 
+            // Hapus timeout
             if (game.choiceTimeoutId) {
                 clearTimeout(game.choiceTimeoutId);
             }
 
+            // Hapus game
             global.coinflips.delete(message.channel.id);
 
+            // Kirim hasil
             const hasilEmbed = new EmbedBuilder()
                 .setColor(0x00FF00)
                 .setTitle('🪙 ━━━━━ GameSen Coinflip ━━━━━ 🪙')
@@ -140,6 +154,7 @@ Gunakan coin dengan bijak 👑
                 .setTimestamp();
             await message.channel.send({ embeds: [hasilEmbed] });
 
+            // Log ke admin
             try {
                 await logger.logCoinflip(game.hostId, game.opponentId, game.bet, game.hostChoice, game.opponentChoice, coinResult, pemenangId, fee, hadiah);
             } catch (e) {
