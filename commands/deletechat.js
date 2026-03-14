@@ -1,9 +1,9 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionsBitField } = require('discord.js');
 const { isAdmin } = require('../utils/helpers');
 
 module.exports = {
     name: 'deletechat',
-    description: '[ADMIN] Menghapus pesan dalam jumlah besar di channel',
+    description: '[ADMIN] Menghapus pesan dalam jumlah besar di channel manapun',
     async execute(message, args) {
         try {
             // Cek apakah user admin
@@ -25,11 +25,15 @@ module.exports = {
                 return message.reply('❌ Maksimal 100 pesan sekali hapus (batasan Discord).');
             }
 
+            // Cek apakah bot punya permission Manage Messages di channel ini
+            if (!message.channel.permissionsFor(message.guild.members.me).has(PermissionsBitField.Flags.ManageMessages)) {
+                return message.reply('❌ Bot tidak punya izin **Manage Messages** di channel ini. Beri permission dulu ya.');
+            }
+
             // Tampilkan pesan "sedang memproses"
             const processingMsg = await message.channel.send('🧹 **Menghapus pesan...**');
 
-            // Delete command message + jumlah yang diminta
-            // Kita tambah 2 karena: 1 (command message) + 1 (processing message) + jumlah yang diminta
+            // Hapus command message + jumlah yang diminta
             const totalToDelete = amount + 2;
             
             // Fetch pesan yang akan dihapus
@@ -38,20 +42,22 @@ module.exports = {
             // Hapus pesan
             const deleted = await message.channel.bulkDelete(messages, true);
             
-            // Hitung berapa yang berhasil dihapus (kurangi 2 untuk pesan bot)
-            const deletedCount = deleted.size - 2;
+            // Hitung jumlah yang berhasil dihapus
+            const deletedCount = deleted.size;
             
             // Kirim konfirmasi (pesan ini akan otomatis terhapus setelah 5 detik)
             const confirmEmbed = new EmbedBuilder()
                 .setColor(0x00FF00)
                 .setTitle('✅ ━━━━━ Chat Dihapus ━━━━━ ✅')
                 .setDescription(`
-**Channel :** ${message.channel}
+**Channel :** ${message.channel} (${message.channel.name})
+**Admin :** ${message.author}
 **Jumlah Dihapus :** ${deletedCount} pesan
 **Diminta :** ${amount} pesan
 
-${deletedCount < amount ? '⚠️ Beberapa pesan mungkin berusia >14 hari dan tidak bisa dihapus.' : ''}
+${deletedCount < amount + 2 ? '⚠️ Beberapa pesan mungkin berusia >14 hari dan tidak bisa dihapus.' : ''}
                 `)
+                .setFooter({ text: 'Pesan ini akan otomatis terhapus dalam 5 detik' })
                 .setTimestamp();
 
             const confirmMsg = await message.channel.send({ embeds: [confirmEmbed] });
@@ -66,11 +72,11 @@ ${deletedCount < amount ? '⚠️ Beberapa pesan mungkin berusia >14 hari dan ti
             
             // Handle error spesifik
             if (error.code === 50013) {
-                return message.reply('❌ Bot tidak punya permission **Manage Messages** di channel ini.');
+                return message.reply('❌ Bot tidak punya permission **Manage Messages** di channel ini. Cek permission bot.');
             } else if (error.code === 50034) {
                 return message.reply('❌ Tidak bisa menghapus pesan yang berusia lebih dari 14 hari.');
             } else {
-                message.reply('❌ Terjadi kesalahan saat menghapus pesan.');
+                message.reply(`❌ Terjadi kesalahan: ${error.message}`);
             }
         }
     }
