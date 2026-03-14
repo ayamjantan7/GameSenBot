@@ -33,13 +33,12 @@ module.exports = {
         }
 
         // Cek apakah sudah ada game di channel ini
-        if (global.coinflips && global.coinflips.has(message.channel.id)) {
-            return message.reply('❌ Sedang ada permainan coinflip berlangsung di channel ini. Tunggu hingga selesai.');
-        }
-
-        // Inisialisasi Map untuk coinflip jika belum ada
         if (!global.coinflips) {
             global.coinflips = new Map();
+        }
+
+        if (global.coinflips.has(message.channel.id)) {
+            return message.reply('❌ Sedang ada permainan coinflip berlangsung di channel ini. Tunggu hingga selesai.');
         }
 
         // Kurangi saldo host sementara
@@ -54,7 +53,7 @@ module.exports = {
             opponentChoice: null,
             bet: bet,
             createdAt: Date.now(),
-            status: 'waiting_join', // waiting_join, choosing, completed
+            status: 'waiting_join',
             messageId: null,
             timeoutId: null,
             choiceTimeoutId: null
@@ -68,7 +67,7 @@ module.exports = {
 **Host :** ${message.author}
 **Lawan :** ${lawan}
 **Taruhan :** ${formatNumber(bet)} Coin
-**Status :** Menunggu ${lawan} mengetik \`!join\`...
+**Status :** Menunggu ${lawan} mengetik \`!joincoin\`...
 
 Permainan akan dibatalkan dalam **3 menit** jika tidak di-join.
             `)
