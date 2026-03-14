@@ -32,7 +32,7 @@ module.exports = {
         const game = {
             userId: userId,
             channelId: channelId,
-            currentLevel: 0, // 0 = level 1, 1 = level 2, 2 = level 3
+            currentLevel: 0,
             bombs: [],
             fruits: [],
             messageId: null,
@@ -61,11 +61,14 @@ module.exports = {
         });
 
         collector.on('collect', async i => {
+            // LANGSUNG DEFER UPDATE agar tidak timeout
+            await i.deferUpdate();
+            
             const gameKey = `${i.channelId}-${i.user.id}`;
             const currentGame = games.get(gameKey);
 
             if (!currentGame || currentGame.status !== 'playing') {
-                await i.reply({ content: '❌ Game sudah berakhir!', ephemeral: true });
+                await i.followUp({ content: '❌ Game sudah berakhir!', ephemeral: true });
                 return;
             }
 
@@ -80,7 +83,7 @@ module.exports = {
                 // Tampilkan semua kotak (bom dan buah)
                 const revealEmbed = createRevealEmbed(currentGame, i.user, boxIndex, true);
                 
-                await i.update({
+                await i.editOriginalMessage({
                     embeds: [revealEmbed],
                     components: [] // Hapus semua button
                 });
@@ -98,28 +101,35 @@ module.exports = {
                     user.saldo += 100;
                     await user.save();
 
-                    const winEmbed = new EmbedBuilder()
-                        .setColor(0xFFD700)
-                        .setTitle('🏆 ━━━━━ GameSen BOM ━━━━━ 🏆')
-                        .setDescription(`
-🎉 **SELAMAT!** Kamu menang semua level!
-
-💰 **Hadiah :** 100 Coin
-💳 **Saldo sekarang :** ${formatNumber(user.saldo)} Coin
-
-Terima kasih sudah bermain! 🎮
-                        `)
-                        .setTimestamp();
-
                     // Tampilkan reveal level terakhir
                     const revealEmbed = createRevealEmbed(currentGame, i.user, boxIndex, false);
                     
-                    await i.update({
+                    await i.editOriginalMessage({
                         embeds: [revealEmbed],
                         components: []
                     });
 
-                    // Kirim embed kemenangan
+                    // Kirim embed kemenangan (pakai followUp karena sudah deferUpdate)
+                    const winEmbed = new EmbedBuilder()
+                        .setColor(0xFFD700)
+                        .setTitle('🏆 ━━━━━ GameSen BOM ━━━━━ 🏆')
+                        .setDescription(`
+╔══════════════════════════════╗
+║         🎉 VICTORY! 🎉        ║
+╚══════════════════════════════╝
+
+👑 **Selamat!** Kamu berhasil menaklukkan semua level!
+
+━━━━━━━━━━━━━━━━━━━━━━
+💰 **Hadiah Utama :** 100 Coin
+💳 **Saldo Sekarang :** ${formatNumber(user.saldo)} Coin
+━━━━━━━━━━━━━━━━━━━━━━
+
+Terima kasih sudah bermain! 🎮
+                        `)
+                        .setFooter({ text: 'Main lagi dengan !bom' })
+                        .setTimestamp();
+
                     await i.followUp({ embeds: [winEmbed] });
                     
                     games.delete(gameKey);
@@ -131,14 +141,14 @@ Terima kasih sudah bermain! 🎮
                     const nextEmbed = createGameEmbed(currentGame, i.user);
                     const nextRow = createButtons(currentGame);
                     
-                    await i.update({
+                    await i.editOriginalMessage({
                         embeds: [nextEmbed],
                         components: [nextRow]
                     });
 
-                    // Kirim pesan selamat
+                    // Kirim pesan selamat (pakai followUp)
                     await i.followUp({
-                        content: `🎉 **Level ${currentGame.currentLevel}**! Kamu dapat ${fruitEmoji} Lanjut ya!`,
+                        content: `✨ **Level ${currentGame.currentLevel + 1}**! Kamu dapat ${fruitEmoji} Lanjutkan!`,
                         ephemeral: true
                     });
                 }
@@ -152,7 +162,15 @@ Terima kasih sudah bermain! 🎮
                     const timeoutEmbed = new EmbedBuilder()
                         .setColor(0xFF0000)
                         .setTitle('⏰ ━━━━━ GameSen BOM ━━━━━ ⏰')
-                        .setDescription('Waktu habis! Game dibatalkan. Ketik `!bom` untuk main lagi.')
+                        .setDescription(`
+╔══════════════════════════════╗
+║         ⏰ TIME OUT! ⏰        ║
+╚══════════════════════════════╝
+
+Waktu habis! Game dibatalkan.
+
+Ketik \`!bom\` untuk memulai game baru.
+                        `)
                         .setTimestamp();
 
                     try {
@@ -195,46 +213,52 @@ function setupLevel(game, levelIndex) {
     });
 }
 
-// Fungsi untuk membuat embed game
+// Fungsi untuk membuat embed game dengan tampilan lebih keren
 function createGameEmbed(game, user) {
     const level = levels[game.currentLevel];
     const currentLevelNum = game.currentLevel + 1;
     const totalLevels = levels.length;
     
-    // Buat tampilan kotak-kotak
+    // Buat tampilan kotak yang lebih keren
     let boxesDisplay = '';
-    for (let i = 0; i < level.boxes; i++) {
-        boxesDisplay += `┃   ${i+1}   `;
-        if ((i + 1) % 3 === 0 || i === level.boxes - 1) {
-            boxesDisplay += '┃\n';
-            for (let j = i - 2; j <= i; j++) {
-                if (j >= 0 && j < level.boxes) {
-                    boxesDisplay += `┃   ❓   `;
-                }
-            }
-            boxesDisplay += '┃\n';
-            if (i < level.boxes - 1) {
-                boxesDisplay += '┣━━━━━━━╋━━━━━━━╋━━━━━━━┫\n';
-            }
-        }
+    
+    if (level.boxes === 3) {
+        boxesDisplay = `
+╔═══════╦═══════╦═══════╗
+║   1   ║   2   ║   3   ║
+║   ❓   ║   ❓   ║   ❓   ║
+╚═══════╩═══════╩═══════╝`;
+    } else if (level.boxes === 6) {
+        boxesDisplay = `
+╔═══════╦═══════╦═══════╦═══════╦═══════╦═══════╗
+║   1   ║   2   ║   3   ║   4   ║   5   ║   6   ║
+║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║
+╚═══════╩═══════╩═══════╩═══════╩═══════╩═══════╝`;
+    } else if (level.boxes === 9) {
+        boxesDisplay = `
+╔═══════╦═══════╦═══════╦═══════╦═══════╦═══════╦═══════╦═══════╦═══════╗
+║   1   ║   2   ║   3   ║   4   ║   5   ║   6   ║   7   ║   8   ║   9   ║
+║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║   ❓   ║
+╚═══════╩═══════╩═══════╩═══════╩═══════╩═══════╩═══════╩═══════╩═══════╝`;
     }
     
-    // Header
-    const header = '┏━━━━━━━┳━━━━━━━┳━━━━━━━┓\n';
-    const footer = '┗━━━━━━━┻━━━━━━━┻━━━━━━━┛';
-    
     const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
+        .setColor(0xFF6B6B)
         .setTitle('💣 ━━━━━ GameSen BOM ━━━━━ 💣')
         .setDescription(`
+╔══════════════════════════════╗
+║         🎮 GAME BOM 🎮        ║
+╚══════════════════════════════╝
+
 👤 **Player :** ${user}
 📊 **Level :** ${currentLevelNum}/${totalLevels}
-📦 **Kotak :** ${level.boxes} (${level.bombs} bom)
-
-${header}${boxesDisplay}${footer}
-
-Pilih kotak dengan klik tombol di bawah!
+💣 **Bom :** ${level.bombs} kotak
+━━━━━━━━━━━━━━━━━━━━━━
+${boxesDisplay}
+━━━━━━━━━━━━━━━━━━━━━━
+✨ **Pilih kotak dengan klik tombol di bawah!**
         `)
+        .setFooter({ text: 'Hati-hati dengan bom! 💥' })
         .setTimestamp();
 
     return embed;
@@ -243,21 +267,89 @@ Pilih kotak dengan klik tombol di bawah!
 // Fungsi untuk membuat tombol
 function createButtons(game) {
     const level = levels[game.currentLevel];
-    const row = new ActionRowBuilder();
+    const rows = [];
     
     const emojiNumbers = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣'];
     
-    for (let i = 0; i < level.boxes; i++) {
-        row.addComponents(
-            new ButtonBuilder()
-                .setCustomId(`${i+1}`)
-                .setLabel(`${i+1}`)
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji(emojiNumbers[i])
-        );
+    if (level.boxes <= 3) {
+        // Satu row untuk 3 kotak
+        const row = new ActionRowBuilder();
+        for (let i = 0; i < level.boxes; i++) {
+            row.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`${i+1}`)
+                    .setLabel(`Kotak ${i+1}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji(emojiNumbers[i])
+            );
+        }
+        rows.push(row);
+    } else if (level.boxes <= 6) {
+        // Dua row untuk 6 kotak
+        const row1 = new ActionRowBuilder();
+        const row2 = new ActionRowBuilder();
+        
+        for (let i = 0; i < 3; i++) {
+            row1.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`${i+1}`)
+                    .setLabel(`Kotak ${i+1}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji(emojiNumbers[i])
+            );
+        }
+        
+        for (let i = 3; i < 6; i++) {
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`${i+1}`)
+                    .setLabel(`Kotak ${i+1}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji(emojiNumbers[i])
+            );
+        }
+        
+        rows.push(row1, row2);
+    } else {
+        // Tiga row untuk 9 kotak
+        const row1 = new ActionRowBuilder();
+        const row2 = new ActionRowBuilder();
+        const row3 = new ActionRowBuilder();
+        
+        for (let i = 0; i < 3; i++) {
+            row1.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`${i+1}`)
+                    .setLabel(`Kotak ${i+1}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji(emojiNumbers[i])
+            );
+        }
+        
+        for (let i = 3; i < 6; i++) {
+            row2.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`${i+1}`)
+                    .setLabel(`Kotak ${i+1}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji(emojiNumbers[i])
+            );
+        }
+        
+        for (let i = 6; i < 9; i++) {
+            row3.addComponents(
+                new ButtonBuilder()
+                    .setCustomId(`${i+1}`)
+                    .setLabel(`Kotak ${i+1}`)
+                    .setStyle(ButtonStyle.Primary)
+                    .setEmoji(emojiNumbers[i])
+            );
+        }
+        
+        rows.push(row1, row2, row3);
     }
     
-    return row;
+    return rows;
 }
 
 // Fungsi untuk membuat embed reveal (setelah game over atau menang)
@@ -266,67 +358,98 @@ function createRevealEmbed(game, user, selectedIndex, isBomb) {
     const currentLevelNum = game.currentLevel + 1;
     const totalLevels = levels.length;
     
-    let boxesDisplay = '';
+    // Buat array untuk menyimpan isi kotak
+    const boxContents = [];
     for (let i = 0; i < level.boxes; i++) {
-        let content;
         if (game.bombs.includes(i)) {
-            content = '💣';
+            boxContents.push('💣');
         } else {
             const fruitIndex = game.fruits[i];
-            content = fruitEmojis[fruitIndex % fruitEmojis.length];
-        }
-        
-        // Highlight kotak yang dipilih
-        if (i === selectedIndex) {
-            boxesDisplay += `┃   **▶${i+1}**   `;
-        } else {
-            boxesDisplay += `┃   ${i+1}   `;
-        }
-        
-        if ((i + 1) % 3 === 0 || i === level.boxes - 1) {
-            boxesDisplay += '┃\n';
-            for (let j = i - 2; j <= i; j++) {
-                if (j >= 0 && j < level.boxes) {
-                    if (j === selectedIndex) {
-                        boxesDisplay += `┃   **▶${content}**   `;
-                    } else {
-                        boxesDisplay += `┃   ${content}   `;
-                    }
-                }
-            }
-            boxesDisplay += '┃\n';
-            if (i < level.boxes - 1) {
-                boxesDisplay += '┣━━━━━━━╋━━━━━━━╋━━━━━━━┫\n';
-            }
+            boxContents.push(fruitEmojis[fruitIndex % fruitEmojis.length]);
         }
     }
     
-    const header = '┏━━━━━━━┳━━━━━━━┳━━━━━━━┓\n';
-    const footer = '┗━━━━━━━┻━━━━━━━┻━━━━━━━┛';
+    // Buat tampilan kotak dengan isi
+    let boxesDisplay = '';
     
-    let title, color, resultText;
+    if (level.boxes === 3) {
+        boxesDisplay = `
+╔═══════╦═══════╦═══════╗
+║   1   ║   2   ║   3   ║
+║  ${boxContents[0]}   ║  ${boxContents[1]}   ║  ${boxContents[2]}   ║
+╚═══════╩═══════╩═══════╝`;
+        
+        // Tambahin panah ke kotak yang dipilih
+        if (selectedIndex === 0) boxesDisplay += `\n     ⬆️ Pilihanmu`;
+        else if (selectedIndex === 1) boxesDisplay += `\n           ⬆️ Pilihanmu`;
+        else if (selectedIndex === 2) boxesDisplay += `\n                 ⬆️ Pilihanmu`;
+        
+    } else if (level.boxes === 6) {
+        boxesDisplay = `
+╔═══════╦═══════╦═══════╦═══════╦═══════╦═══════╗
+║   1   ║   2   ║   3   ║   4   ║   5   ║   6   ║
+║  ${boxContents[0]}   ║  ${boxContents[1]}   ║  ${boxContents[2]}   ║  ${boxContents[3]}   ║  ${boxContents[4]}   ║  ${boxContents[5]}   ║
+╚═══════╩═══════╩═══════╩═══════╩═══════╩═══════╝`;
+        
+        // Tambahin panah
+        if (selectedIndex === 0) boxesDisplay += `\n⬆️ Pilihanmu`;
+        else if (selectedIndex === 1) boxesDisplay += `\n     ⬆️ Pilihanmu`;
+        else if (selectedIndex === 2) boxesDisplay += `\n          ⬆️ Pilihanmu`;
+        else if (selectedIndex === 3) boxesDisplay += `\n               ⬆️ Pilihanmu`;
+        else if (selectedIndex === 4) boxesDisplay += `\n                    ⬆️ Pilihanmu`;
+        else if (selectedIndex === 5) boxesDisplay += `\n                         ⬆️ Pilihanmu`;
+        
+    } else if (level.boxes === 9) {
+        boxesDisplay = `
+╔═══════╦═══════╦═══════╦═══════╦═══════╦═══════╦═══════╦═══════╦═══════╗
+║   1   ║   2   ║   3   ║   4   ║   5   ║   6   ║   7   ║   8   ║   9   ║
+║  ${boxContents[0]}   ║  ${boxContents[1]}   ║  ${boxContents[2]}   ║  ${boxContents[3]}   ║  ${boxContents[4]}   ║  ${boxContents[5]}   ║  ${boxContents[6]}   ║  ${boxContents[7]}   ║  ${boxContents[8]}   ║
+╚═══════╩═══════╩═══════╩═══════╩═══════╩═══════╩═══════╩═══════╩═══════╝`;
+        
+        // Tambahin panah
+        if (selectedIndex === 0) boxesDisplay += `\n⬆️ Pilihanmu`;
+        else if (selectedIndex === 1) boxesDisplay += `\n    ⬆️ Pilihanmu`;
+        else if (selectedIndex === 2) boxesDisplay += `\n         ⬆️ Pilihanmu`;
+        else if (selectedIndex === 3) boxesDisplay += `\n              ⬆️ Pilihanmu`;
+        else if (selectedIndex === 4) boxesDisplay += `\n                   ⬆️ Pilihanmu`;
+        else if (selectedIndex === 5) boxesDisplay += `\n                        ⬆️ Pilihanmu`;
+        else if (selectedIndex === 6) boxesDisplay += `\n                             ⬆️ Pilihanmu`;
+        else if (selectedIndex === 7) boxesDisplay += `\n                                  ⬆️ Pilihanmu`;
+        else if (selectedIndex === 8) boxesDisplay += `\n                                       ⬆️ Pilihanmu`;
+    }
+    
+    let title, color, resultText, resultEmoji;
     
     if (isBomb) {
         title = '💥 ━━━━━ GameSen BOM ━━━━━ 💥';
         color = 0xFF0000;
-        resultText = `💥 **BOOM!** Kamu kena bom di kotak **${selectedIndex+1}**!\nGame over. Coba lagi dengan \`!bom\``;
+        resultEmoji = '💣';
+        resultText = `**BOOM!** Kamu kena bom di kotak **${selectedIndex+1}**!`;
     } else {
         title = '🎉 ━━━━━ GameSen BOM ━━━━━ 🎉';
         color = 0x00FF00;
-        resultText = `🎉 Kamu dapat ${fruitEmojis[game.fruits[selectedIndex] % fruitEmojis.length]} di kotak **${selectedIndex+1}**!`;
+        resultEmoji = fruitEmojis[game.fruits[selectedIndex] % fruitEmojis.length];
+        resultText = `**SELAMAT!** Kamu dapat ${resultEmoji} di kotak **${selectedIndex+1}**!`;
     }
     
     const embed = new EmbedBuilder()
         .setColor(color)
         .setTitle(title)
         .setDescription(`
+╔══════════════════════════════╗
+║         ${isBomb ? '💥 GAME OVER 💥' : '✨ LEVEL CLEAR ✨'}        ║
+╚══════════════════════════════╝
+
 👤 **Player :** ${user}
 📊 **Level :** ${currentLevelNum}/${totalLevels}
-
+━━━━━━━━━━━━━━━━━━━━━━
 ${resultText}
-
-${header}${boxesDisplay}${footer}
+━━━━━━━━━━━━━━━━━━━━━━
+${boxesDisplay}
+━━━━━━━━━━━━━━━━━━━━━━
+${isBomb ? '😵 Coba lagi dengan `!bom`' : '✅ Lanjut ke level berikutnya!'}
         `)
+        .setFooter({ text: isBomb ? '💥 Bye bye nyawa...' : '🎯 Semoga beruntung di level selanjutnya!' })
         .setTimestamp();
 
     return embed;
