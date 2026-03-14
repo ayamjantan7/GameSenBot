@@ -22,15 +22,15 @@ module.exports = {
             return message.reply('❌ Saldo kamu tidak cukup untuk bertaruh.');
         }
 
-        // Kurangi saldo lawan
         user.saldo -= duel.bet;
         await user.save();
 
-        // Update duel
-        duel.status = 'spinning';
-        global.duels.set(message.channel.id, duel);
+        if (duel.timeoutId) {
+            clearTimeout(duel.timeoutId);
+        }
 
-        // Update embed room
+        duel.status = 'spinning';
+        
         const channel = message.channel;
         const host = await channel.client.users.fetch(duel.hostId);
         const opponent = message.author;
@@ -51,34 +51,30 @@ Anda memiliki waktu **3 menit** untuk spin.
         const msg = await channel.messages.fetch(duel.messageId);
         await msg.edit({ embeds: [embed] });
 
-        // Batalkan timeout sebelumnya (waiting_join)
-if (duel.timeoutId) {
-    clearTimeout(duel.timeoutId);
-}
+        const spinTimeoutId = setTimeout(async () => {
+            const currentDuel = global.duels.get(channel.id);
+            if (currentDuel && currentDuel.status === 'spinning' && 
+                (currentDuel.hostSpin === null || currentDuel.opponentSpin === null)) {
+                
+                const hostUser = await getUser(host.id, host.username);
+                const oppUser = await getUser(opponent.id, opponent.username);
+                hostUser.saldo += currentDuel.bet;
+                oppUser.saldo += currentDuel.bet;
+                await hostUser.save();
+                await oppUser.save();
 
-// Set timeout untuk spin
-const spinTimeoutId = setTimeout(async () => {
-    const currentDuel = global.duels.get(channel.id);
-    if (currentDuel && currentDuel.status === 'spinning' && 
-        (currentDuel.hostSpin === null || currentDuel.opponentSpin === null)) {
-        // Batalkan duel karena tidak spin
-        const hostUser = await getUser(host.id, host.username);
-        const oppUser = await getUser(opponent.id, opponent.username);
-        hostUser.saldo += currentDuel.bet;
-        oppUser.saldo += currentDuel.bet;
-        await hostUser.save();
-        await oppUser.save();
+                global.duels.delete(channel.id);
 
-        global.duels.delete(channel.id);
+                const cancelEmbed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle('❌ Duel Dibatalkan')
+                    .setDescription(`Salah satu pemain tidak melakukan spin dalam 3 menit. Coin dikembalikan.`)
+                    .setTimestamp();
+                channel.send({ embeds: [cancelEmbed] });
+            }
+        }, 3 * 60 * 1000);
 
-        const cancelEmbed = new EmbedBuilder()
-            .setColor(0xFF0000)
-            .setTitle('❌ Duel Dibatalkan')
-            .setDescription(`Salah satu pemain tidak melakukan spin dalam 3 menit. Coin dikembalikan.`)
-            .setTimestamp();
-        channel.send({ embeds: [cancelEmbed] });
+        duel.spinTimeoutId = spinTimeoutId;
+        global.duels.set(message.channel.id, duel);
     }
-}, 3 * 60 * 1000);
-
-// Simpan spinTimeoutId
-duel.spinTimeoutId = spinTimeoutId;
+};
