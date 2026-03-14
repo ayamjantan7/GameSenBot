@@ -40,26 +40,6 @@ async function logAdminAdd(admin, target, jumlah) {
     channel.send({ embeds: [embed] });
 }
 
-async function logDuel(hostId, opponentId, bet, spinHost, spinOpp, winnerId, fee, hadiah) {
-    const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
-    if (!channel) return;
-
-    const embed = new EmbedBuilder()
-        .setColor(0x00FF00)
-        .setTitle('🎮 Duel Log')
-        .setDescription(`
-**Host :** <@${hostId}> (🎲 ${spinHost})
-**Lawan :** <@${opponentId}> (🎲 ${spinOpp})
-**Taruhan :** ${bet.toLocaleString('id-ID')} Coin
-**Pemenang :** <@${winnerId}>
-**Hadiah :** ${hadiah.toLocaleString('id-ID')} Coin
-**Fee (5%) :** ${fee.toLocaleString('id-ID')} Coin
-**Waktu :** ${new Date().toLocaleTimeString('id-ID')}
-        `)
-        .setTimestamp();
-    channel.send({ embeds: [embed] });
-}
-
 async function logAdminDel(admin, target, jumlah, sisaSaldo) {
     const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
     if (!channel) return;
@@ -80,4 +60,51 @@ async function logAdminDel(admin, target, jumlah, sisaSaldo) {
     channel.send({ embeds: [embed] });
 }
 
-module.exports = { logTransfer, logAdminAdd, logDuel, logAdminDel };
+async function logDuel(hostId, opponentId, bet, spinHost, spinOpp, winnerId, fee, hadiah) {
+    const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+        .setColor(0x00FF00)
+        .setTitle('🎮 Duel Log')
+        .setDescription(`
+**Host :** <@${hostId}> (🎲 ${spinHost})
+**Lawan :** <@${opponentId}> (🎲 ${spinOpp})
+**Taruhan :** ${bet.toLocaleString('id-ID')} Coin
+**Pemenang :** <@${winnerId}>
+**Hadiah :** ${hadiah.toLocaleString('id-ID')} Coin
+**Fee (5%) :** ${fee.toLocaleString('id-ID')} Coin
+**Waktu :** ${new Date().toLocaleTimeString('id-ID')}
+        `)
+        .setTimestamp();
+    channel.send({ embeds: [embed] });
+}
+
+async function logCoinflip(hostId, opponentId, bet, hostChoice, oppChoice, coinResult, winnerId, fee, hadiah) {
+    const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
+    if (!channel) return;
+
+    const embed = new EmbedBuilder()
+        .setColor(0xFFD700)
+        .setTitle('🪙 Coinflip Log')
+        .setDescription(`
+**Host :** <@${hostId}> (${hostChoice === 'head' ? '🔴 Head' : '🔵 Tails'})
+**Lawan :** <@${opponentId}> (${oppChoice === 'head' ? '🔴 Head' : '🔵 Tails'})
+**Hasil Koin :** ${coinResult === 'head' ? '🔴 Head' : '🔵 Tails'}
+**Taruhan :** ${bet.toLocaleString('id-ID')} Coin
+**Pemenang :** <@${winnerId}>
+**Hadiah :** ${hadiah.toLocaleString('id-ID')} Coin
+**Fee (5%) :** ${fee.toLocaleString('id-ID')} Coin
+**Waktu :** ${new Date().toLocaleTimeString('id-ID')}
+        `)
+        .setTimestamp();
+    channel.send({ embeds: [embed] });
+}
+
+module.exports = { 
+    logTransfer, 
+    logAdminAdd, 
+    logAdminDel, 
+    logDuel,
+    logCoinflip
+};
