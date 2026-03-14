@@ -59,6 +59,7 @@ async function logDuel(hostId, opponentId, bet, spinHost, spinOpp, winnerId, fee
         .setTimestamp();
     channel.send({ embeds: [embed] });
 }
+
 async function logAdminDel(admin, target, jumlah, sisaSaldo) {
     const channel = await global.client.channels.fetch(process.env.LOG_CHANNEL_ID);
     if (!channel) return;
@@ -78,4 +79,5 @@ async function logAdminDel(admin, target, jumlah, sisaSaldo) {
         .setTimestamp();
     channel.send({ embeds: [embed] });
 }
+
 module.exports = { logTransfer, logAdminAdd, logDuel, logAdminDel };
