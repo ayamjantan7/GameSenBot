@@ -51,28 +51,34 @@ Anda memiliki waktu **3 menit** untuk spin.
         const msg = await channel.messages.fetch(duel.messageId);
         await msg.edit({ embeds: [embed] });
 
-        // Set timeout untuk spin
-        setTimeout(async () => {
-            const currentDuel = global.duels.get(channel.id);
-            if (currentDuel && currentDuel.status === 'spinning' && 
-                (currentDuel.hostSpin === null || currentDuel.opponentSpin === null)) {
-                // Batalkan duel karena tidak spin
-                const hostUser = await getUser(host.id, host.username);
-                const oppUser = await getUser(opponent.id, opponent.username);
-                hostUser.saldo += currentDuel.bet;
-                oppUser.saldo += currentDuel.bet;
-                await hostUser.save();
-                await oppUser.save();
+        // Batalkan timeout sebelumnya (waiting_join)
+if (duel.timeoutId) {
+    clearTimeout(duel.timeoutId);
+}
 
-                global.duels.delete(channel.id);
+// Set timeout untuk spin
+const spinTimeoutId = setTimeout(async () => {
+    const currentDuel = global.duels.get(channel.id);
+    if (currentDuel && currentDuel.status === 'spinning' && 
+        (currentDuel.hostSpin === null || currentDuel.opponentSpin === null)) {
+        // Batalkan duel karena tidak spin
+        const hostUser = await getUser(host.id, host.username);
+        const oppUser = await getUser(opponent.id, opponent.username);
+        hostUser.saldo += currentDuel.bet;
+        oppUser.saldo += currentDuel.bet;
+        await hostUser.save();
+        await oppUser.save();
 
-                const cancelEmbed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle('❌ Duel Dibatalkan')
-                    .setDescription(`Salah satu pemain tidak melakukan spin dalam 3 menit. Coin dikembalikan.`)
-                    .setTimestamp();
-                channel.send({ embeds: [cancelEmbed] });
-            }
-        }, 3 * 60 * 1000);
+        global.duels.delete(channel.id);
+
+        const cancelEmbed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle('❌ Duel Dibatalkan')
+            .setDescription(`Salah satu pemain tidak melakukan spin dalam 3 menit. Coin dikembalikan.`)
+            .setTimestamp();
+        channel.send({ embeds: [cancelEmbed] });
     }
-};
+}, 3 * 60 * 1000);
+
+// Simpan spinTimeoutId
+duel.spinTimeoutId = spinTimeoutId;
