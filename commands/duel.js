@@ -73,23 +73,24 @@ Duel akan dibatalkan dalam **3 menit** jika tidak di-join.
         global.duels.set(message.channel.id, duel);
 
         // Set timeout untuk membatalkan jika lawan tidak join
-        setTimeout(async () => {
-            const currentDuel = global.duels.get(message.channel.id);
-            if (currentDuel && currentDuel.status === 'waiting_join' && currentDuel.hostId === message.author.id) {
-                // Kembalikan coin ke host
-                const host = await getUser(message.author.id, message.author.username);
-                host.saldo += currentDuel.bet;
-                await host.save();
+const timeoutId = setTimeout(async () => {
+    const currentDuel = global.duels.get(message.channel.id);
+    if (currentDuel && currentDuel.status === 'waiting_join' && currentDuel.hostId === message.author.id) {
+        // Kembalikan coin ke host
+        const host = await getUser(message.author.id, message.author.username);
+        host.saldo += currentDuel.bet;
+        await host.save();
 
-                global.duels.delete(message.channel.id);
+        global.duels.delete(message.channel.id);
 
-                const cancelEmbed = new EmbedBuilder()
-                    .setColor(0xFF0000)
-                    .setTitle('❌ Duel Dibatalkan')
-                    .setDescription(`${lawan} tidak merespon. Coin dikembalikan ke ${message.author}.`)
-                    .setTimestamp();
-                message.channel.send({ embeds: [cancelEmbed] });
-            }
-        }, 3 * 60 * 1000);
+        const cancelEmbed = new EmbedBuilder()
+            .setColor(0xFF0000)
+            .setTitle('❌ Duel Dibatalkan')
+            .setDescription(`${lawan} tidak merespon. Coin dikembalikan ke ${message.author}.`)
+            .setTimestamp();
+        message.channel.send({ embeds: [cancelEmbed] });
     }
-};
+}, 3 * 60 * 1000);
+
+// Simpan timeoutId di objek duel
+duel.timeoutId = timeoutId;
