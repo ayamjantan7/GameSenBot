@@ -6,7 +6,6 @@ module.exports = {
     name: 'joincoin',
     description: 'Menerima tantangan coinflip',
     async execute(message, args) {
-        // Inisialisasi Map untuk coinflip jika belum ada
         if (!global.coinflips) {
             global.coinflips = new Map();
         }
@@ -69,7 +68,6 @@ Kedua pemain memiliki waktu **3 menit** untuk memilih.
             if (currentGame && currentGame.status === 'choosing' && 
                 (currentGame.hostChoice === null || currentGame.opponentChoice === null)) {
                 
-                // Batalkan permainan karena tidak memilih
                 const hostUser = await getUser(host.id, host.username);
                 const oppUser = await getUser(opponent.id, opponent.username);
                 hostUser.saldo += currentGame.bet;
