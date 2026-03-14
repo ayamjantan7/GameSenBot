@@ -31,8 +31,12 @@ module.exports = {
             return message.reply('❌ Saldo kamu tidak cukup.');
         }
 
-        if (global.duels.has(message.channel.id)) {
+        if (global.duels && global.duels.has(message.channel.id)) {
             return message.reply('❌ Sedang ada duel berlangsung di channel ini. Tunggu hingga selesai.');
+        }
+
+        if (!global.duels) {
+            global.duels = new Map();
         }
 
         user.saldo -= bet;
